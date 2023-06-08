@@ -35,7 +35,7 @@ create_dta_per_region <- function(new_region_nr) {
 # function that creates one chart (based on template `old_chart_id`) -and saves the iframe code in a table (`rpl_tbl_path`)
 create_new_chart <- function(new_region_nr,
                              new_region,
-                             old_chart_id = "Wq3i2" ,
+                             old_chart_id = "IKvRN" ,
                              new_folder = folder_region_increase, 
                              rpl_tbl_path) {
   
@@ -88,17 +88,32 @@ source("get_gde_required.R")
 # all gde
 
 gde_required <- bfs_gde_for_gde_seiten %>% 
-  select(name, Gemeinde_Nr)
+  select(Gemeinde_Nr) %>% 
+  unique()
 
-ms_regions <- gde_required %>% 
-  select(nr = Gemeinde_Nr, name = name) %>% 
+
+ 
+library(readxl)
+
+gde_stand_19 <- read_excel("Gemeindestand.xlsx") %>% 
+  select(`BFS Gde-nummer`, Gemeindename) %>% 
+  rename(gde_nr = `BFS Gde-nummer`,
+         gde_name = Gemeindename)
+
+
+gde_aktuell <- left_join(gde_required, gde_stand_19, by = c("Gemeinde_Nr" = "gde_nr"))
+
+
+
+ms_regions <- gde_aktuell %>% 
+  select(nr = Gemeinde_Nr, name = gde_name) %>% 
   unique()
 
 
 sample_gde <- ms_regions %>% 
   filter(nr %in% c(sample(ms_regions$nr, 3)))
 
-walk2(sample_gde$nr, sample_gde$name,
+walk2(ms_regions$nr, ms_regions$name,
       function(x, y) create_new_chart(new_region = y,
                                       new_region_nr = x,
                                       rpl_tbl_path = "embeds_chart_increase_V2.csv"))
