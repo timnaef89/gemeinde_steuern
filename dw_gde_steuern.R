@@ -1,5 +1,4 @@
 
-
 # towards creating a line chart for each MS region
 library(tidyverse)
 
@@ -10,7 +9,8 @@ library(tidyverse)
 source("custom_DW_functions.R")
 
 # set DW API KEY
-Sys.setenv(DW_API_KEY = "jBAKv9CWsroIlEa4TvBwhLcwjiWMQiaMrTRZL7mUF0ymfKmW1Bs2wzxKcdWQqJ3D")
+
+Sys.setenv(DW_API_KEY = "")
 
 # set folder number (as string!)
 folder_region_increase <- "166667"
@@ -79,7 +79,7 @@ create_new_chart <- function(new_region_nr,
 embeds_chart_increase_empty <- tibble(MS_Region_Nr = numeric(0),
                                       MS_Region_Name = character(0),
                                       iframe_full = character(0))
-write_csv(embeds_chart_increase_empty, "embeds_chart_increase_V2.csv")
+write_csv(embeds_chart_increase_empty, "embeds_chart_increase_V3.csv")
 
 
 # data frame with all required regions in (name and number)
@@ -103,23 +103,56 @@ gde_stand_19 <- read_excel("Gemeindestand.xlsx") %>%
 
 gde_aktuell <- left_join(gde_required, gde_stand_19, by = c("Gemeinde_Nr" = "gde_nr"))
 
-
-
 ms_regions <- gde_aktuell %>% 
   select(nr = Gemeinde_Nr, name = gde_name) %>% 
   unique()
 
 
-sample_gde <- ms_regions %>% 
-  filter(nr %in% c(sample(ms_regions$nr, 3)))
+## ORIGINAL
+# sample_gde <- ms_regions %>% 
+#   filter(nr %in% c(sample(ms_regions$nr, 3)))
+# 
+# walk2(ms_regions$nr, ms_regions$name,
+#       function(x, y) create_new_chart(new_region = y,
+#                                       new_region_nr = x,
+#                                       rpl_tbl_path = "embeds_chart_increase_V2.csv"))
 
-walk2(ms_regions$nr, ms_regions$name,
+
+## GEÄNDERTE WEGEN GEMEINDESTAND 2019
+
+
+nachbarn_alt <- read_rds("nachbarn.RDS")
+nachbarn <- read_rds("nachbarn19.RDS")
+
+nachbarn_check1 <- nachbarn |> 
+  left_join(nachbarn_alt |> 
+              select(BFS_NUMMER,
+                     anzahl_nachbarn_alt = anzahl_nachbarn))
+
+gde_nr_nachzug1 <- nachbarn_check1 |> 
+  filter(BFS_NUMMER %in% gde_required$Gemeinde_Nr) |> 
+  filter(anzahl_nachbarn != anzahl_nachbarn_alt) |> 
+  pull(BFS_NUMMER)
+
+ms_regions_nachzug1 <- ms_regions |> 
+  filter(nr %in% gde_nr_nachzug1)
+
+walk2(ms_regions_nachzug1$nr[4:37], ms_regions_nachzug1$name[4:37],
       function(x, y) create_new_chart(new_region = y,
                                       new_region_nr = x,
-                                      rpl_tbl_path = "embeds_chart_increase_V2.csv"))
+                                      rpl_tbl_path = "embeds_chart_increase_V3.csv"))
+
+
+# Reconcile embed-codes tables
+new_table <- read_csv("embeds_chart_increase_V3.csv") |> 
+  bind_rows(read_csv("embeds_chart_increase_V2.csv") |> 
+              filter(!MS_Region_Nr %in% (read_csv("embeds_chart_increase_V3.csv") |> 
+                                          pull(MS_Region_Nr))))
+
+write_csv(new_table, "embeds_chart_increase_V4_reconciled.csv")
 
 # Try out for one region (Zürich)
 # chart_zrh <- create_new_chart(new_region = "Zürich", new_region_nr = 1)
 # 
-# ee <- read_csv("embeds_chart_increase_V2.csv")
+# ee <- read_csv("embeds_chart_increase_V3.csv")
 # chart_prtg <- create_new_chart(new_region = "Prättigau")
